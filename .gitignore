@@ -1,0 +1,32 @@
+# cache files
+*~
+.#*
+\#*\#
+*.swp
+
+# cache and compile directories
+bin/** /*
+build/** /*
+cache/** /*
+tmp/** /*
+test
+docs
+
+# logs and dbs
+*.log
+*.sqlite
+ehthumbs.db
+Icon?
+Thumbs.db
+*.DS_Store
+log*.txt
+
+# packages
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
