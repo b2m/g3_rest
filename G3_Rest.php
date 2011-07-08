@@ -45,6 +45,25 @@ class G3_Rest extends Frontend
         if ($tagSplit[0] == 'g3_rest' || $tagSplit[0] == 'cache_g3_rest') {
             // need a second argument
             if (isset($tagSplit[1])) {
+                // check if caching is allowed
+                if ($tagSplit[0] == 'g3_rest'
+                    && $GLOBALS['TL_CONFIG']['g3_rest_cache'] == 1
+                ) {
+                    // generate language specific filename
+                    $file = TL_ROOT.'/system/tmp/g3_rest_';
+                    $file .= md5($GLOBALS['TL_LANGUAGE'].$tag).'.txt';
+                    // check if file exists
+                    if (file_exists($file)) {
+                        $html = file_get_contents($file);
+                        // check if file is expired
+                        $expires = preg_match('~<!--([0-9]*)-->~', $html, $matches);
+                        if (intval($matches[1]) > time()) {
+                            // remove timestamp from output
+                            $html = str_replace($matches[0], '', $html);
+                            return $html;
+                        }
+                    }
+                }
                 // possible GET-params and allowed values
                 $conf = array();
                 $conf['tag']['val'] = specialchars('{{'.$tag.'}}');
@@ -90,6 +109,8 @@ class G3_Rest extends Frontend
                 $conf['name']['test'] = 'text';
                 $conf['type']['val'] = null; // album, photo, (video)
                 $conf['type']['test'] = array('album', 'photo');
+                $conf['cache_time']['val'] = 0;
+                $conf['cache_time']['test'] = 'int'; // time in hours
  
                 // parse arguments
                 if (strpos($tagSplit[1], '?') !== false) {
@@ -136,10 +157,10 @@ class G3_Rest extends Frontend
                     return $this->getItem($conf);
                     break;
                 case 'items':
-                    return $this->getItems($conf);
+                    return $html = $this->getItems($conf);
                     break;
                 case 'tag':
-                    return $this->getTagItems($conf, 'photos');
+                    return $html = $this->getTagItems($conf, 'photos');
                     break;
                 default:
                     $message = 'Unknown parameter "'.$action.'"';
@@ -426,6 +447,7 @@ class G3_Rest extends Frontend
         if ($this->checkContainer($conf)) {
             $html .= $this->getContainerCloseHTML();
         }
+        $this->writeCache($html, $conf);
         return $html;
     }
 
@@ -866,6 +888,44 @@ class G3_Rest extends Frontend
             break;
         }
         return $ret;
+    }
+
+    /**
+     * Writes html code to some cache files
+     *
+     * @param string $html The generated html to be written to cache file
+     * @param array  $conf The parameter array
+     *
+     * @return boolean depending on writing success
+     */
+    protected function writeCache($html, $conf)
+    {
+        $tagSplit = explode('::', $conf['tag']);
+        // check if caching is allowed
+        if ($tagSplit[0] == 'g3_rest'
+            && $GLOBALS['TL_CONFIG']['g3_rest_cache'] == 1
+        ) {
+            if ($conf['cache_time']['val'] > 0) {
+                $cache_time = $conf['cache_time']['val'];
+            } else {
+                $cache_time = $GLOBALS['TL_CONFIG']['g3_rest_cache_time'];
+            }
+            // generate language specific filename
+            $file = TL_ROOT.'/system/tmp/g3_rest_';
+            $file .= md5($GLOBALS['TL_LANGUAGE'].$tag).'.txt';
+            $html = '<!--'.(time()+$cache_time).'-->\n'.$html;
+
+            // check if file exists
+            if (file_put_contents($file, $html) === false) {
+                $this->log(
+                    'Could not write in ~/system/tmp/, caching disabled!',
+                    __CLASS__.' '.__METHOD__,
+                    TL_ERROR
+                );
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
