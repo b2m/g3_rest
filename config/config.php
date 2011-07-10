@@ -21,4 +21,10 @@ if (!defined('TL_ROOT')) die('You can not access this file directly!');
  */
 $GLOBALS['TL_HOOKS']['replaceInsertTags'][] = array('G3_Rest', 'g3images');
 
+/**
+ * Delete file in tmp folder
+ * @global @array $GLOBALS['TL_CRON']['weekly']
+ * @name $TL_CRON['weekly']
+ */
+$GLOBALS['TL_CRON']['weekly'][] = array('G3_Rest', 'purgeTempFolder');
 ?>

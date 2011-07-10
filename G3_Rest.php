@@ -15,7 +15,7 @@
 if (!defined('TL_ROOT')) die('You can not access this file directly!');
 
 /**
- * Class G3_Rest 
+ * Class G3_Rest
  *
  * @category  Contao
  * @package   G3_Rest
@@ -40,17 +40,17 @@ class G3_Rest extends Frontend
     public function g3images($tag)
     {
         $tagSplit = explode('::', $tag);
- 
+
         // check if this is a tag for us
         if ($tagSplit[0] == 'g3_rest' || $tagSplit[0] == 'cache_g3_rest') {
             // need a second argument
             if (isset($tagSplit[1])) {
                 // check if caching is allowed
                 if ($tagSplit[0] == 'g3_rest'
-                    && $GLOBALS['TL_CONFIG']['g3_rest_cache'] == 1
+                    && $GLOBALS['TL_CONFIG']['g3_rest_cache_time'] > 0
                 ) {
-                    // generate language specific filename
-                    $file = TL_ROOT.'/system/tmp/g3_rest_';
+                    // get path to language specific filename
+                    $file = TL_ROOT.'/system/tmp/g3_rest/';
                     $file .= md5($GLOBALS['TL_LANGUAGE'].$tag).'.txt';
                     // check if file exists
                     if (file_exists($file)) {
@@ -64,54 +64,19 @@ class G3_Rest extends Frontend
                         }
                     }
                 }
-                // possible GET-params and allowed values
+
+                // get module config
+                include_once TL_ROOT.'/system/modules/g3_rest/config/modconfig.php';
+
+                // generate config for this insertTag
                 $conf = array();
-                $conf['tag']['val'] = specialchars('{{'.$tag.'}}');
-                $conf['tag']['test'] = 'readonly';
-                $conf['width']['val'] = null; // int
-                $conf['width']['test'] = 'int';
-                $conf['height']['val'] = null; // int
-                $conf['height']['test'] = 'int';
-                $conf['alt']['val'] = 'g3Title'; // g3Title, g3Desc, custom text
-                $conf['alt']['test'] = 'text';
-                $conf['class']['val'] = ''; // text
-                $conf['class']['test'] = 'text';
-                $conf['rel']['val'] = ''; // text
-                $conf['rel']['test'] = 'text';
-                $conf['divclass']['val'] = ''; // text
-                $conf['divclass']['test'] = 'text';
-                $conf['title']['val'] = 'g3Desc'; // g3Title, g3Desc, custom text
-                $conf['title']['test'] = 'text';
-                $conf['caption']['val'] = 'g3Title'; 
-                // none, g3Title, g3Desc, custom text
-                $conf['caption']['test'] = 'text';
-                $conf['link']['val'] = 'resize'; // none, resize, orig, site
-                $conf['link']['test'] = array('none', 'resize', 'orig', 'site');
-                $conf['include']['val'] = 'thumb'; // thumb, resize, orig
-                $conf['include']['test'] = array('thumb', 'resize', 'orig');
-                $conf['showlink']['val'] = 1; // 0, 1
-                $conf['showlink']['test'] = array(0, 1);
-                $conf['showtags']['val'] = 1; // 0, 1
-                $conf['showtags']['test'] = array(0, 1);
-                $conf['id']['val'] = 1; // int or array of ints
-                $conf['id']['test'] = 'int|array';
-                $conf['count']['val'] = null; // int
-                $conf['count']['test'] = 'int';
-                $conf['num']['val'] = null; // int
-                $conf['num']['test'] = 'int';
-                $conf['start']['val'] = null; // int
-                $conf['start']['test'] = 'int';
-                $conf['scope']['val'] = null; // direct, all
-                $conf['scope']['test'] = array('direct', 'all');
-                $conf['random']['val'] = null; // 'true'
-                $conf['random']['test'] = array('true');
-                $conf['name']['val'] = null; // text
-                $conf['name']['test'] = 'text';
-                $conf['type']['val'] = null; // album, photo, (video)
-                $conf['type']['test'] = array('album', 'photo');
-                $conf['cache_time']['val'] = 0;
-                $conf['cache_time']['test'] = 'int'; // time in hours
- 
+                foreach ($GLOBALS['TL_G3'] as $key => $val) {
+                    $conf[$key] = $val['val'];
+                }
+
+                // set tag
+                $conf['tag'] = specialchars('{{'.$tag.'}}');
+
                 // parse arguments
                 if (strpos($tagSplit[1], '?') !== false) {
                     $this->import('String');
@@ -127,13 +92,16 @@ class G3_Rest extends Frontend
                     foreach ($paramarr as $param) {
                         list($key, $value) = explode('=', $param);
                         if (array_key_exists($key, $conf)) {
-                            $param = $this->checkParam($value, $conf[$key]['test']);
+                            $param = $this->checkParam(
+                                $value,
+                                $GLOBALS['TL_G3'][$key]['test']
+                            );
                             if ($param || strlen($param)) {
-                                $conf[$key]['val'] = $param;
+                                $conf[$key] = $param;
                             }
                         } else {
                             $message = 'Unknown parameter "'.$key.'"';
-                            $message .= ' in '.$conf['tag']['val'];
+                            $message .= ' in '.$conf['tag'];
                             $this->log(
                                 $message,
                                 __CLASS__.' '.__METHOD__,
@@ -144,7 +112,7 @@ class G3_Rest extends Frontend
                     }
                 } else {
                     $this->log(
-                        'No parameter after ? in '.$conf['tag']['val'],
+                        'No parameter after ? in '.$conf['tag'],
                         __CLASS__.' '.__METHOD__,
                         TL_ERROR
                     );
@@ -164,7 +132,7 @@ class G3_Rest extends Frontend
                     break;
                 default:
                     $message = 'Unknown parameter "'.$action.'"';
-                    $message .= ' after :: in '.$conf['tag']['val'];
+                    $message .= ' after :: in '.$conf['tag'];
                     $this->log(
                         $message,
                         __CLASS__.' '.__METHOD__,
@@ -175,7 +143,7 @@ class G3_Rest extends Frontend
                 }
             } else {
                 $this->log(
-                    'No parameter after :: in '.$conf['tag']['val'],
+                    'No parameter after :: in '.$conf['tag'],
                     __CLASS__.' '.__METHOD__,
                     TL_ERROR
                 );
@@ -198,12 +166,12 @@ class G3_Rest extends Frontend
      */
     protected function getItem($conf)
     {
-        if (is_array($conf['id']['val'])) {
+        if (is_array($conf['id'])) {
             return $this->getItems($conf);
         } else {
             // allowed params for REST request
             $use = array('start', 'num', 'scope', 'name', 'random', 'type');
-            $url = $GLOBALS['TL_CONFIG']['g3_rest_url'].'item/'.$conf['id']['val'];
+            $url = $GLOBALS['TL_CONFIG']['g3_rest_url'].'item/'.$conf['id'];
             $url .= '?'.substr($this->reqParams($this->filterArray($use, $conf)), 1);
 
             // get REST response as json
@@ -213,14 +181,14 @@ class G3_Rest extends Frontend
             }
             // check if params are set so members are needed
             if ($item->entity->type=='album'
-                && ($conf['name']['val']!=null
-                || $conf['random']['val']!=null
-                || $conf['count']['val']!=null)
+                && ($conf['name']!=null
+                || $conf['random']!=null
+                || $conf['count']!=null)
             ) {
                 $c = count($item->members);
                 if ($c > 0) {
                     // only one member
-                    if ($c == 1 || $conf['count']['val'] == 1) {
+                    if ($c == 1 || $conf['count'] == 1) {
                         $new_item = $this->request($item->members[0], $conf);
                         if (!is_object($new_item)) {
                             return '';
@@ -228,10 +196,10 @@ class G3_Rest extends Frontend
                         return $this->processItem($new_item, $conf);
                     } else {
                         // several members so check how many
-                        if ($conf['count']['val']!=null
-                            && $conf['count']['val'] < $c
+                        if ($conf['count']!=null
+                            && $conf['count'] < $c
                         ) {
-                            $c = $conf['count']['val'];
+                            $c = $conf['count'];
                         }
                         $urls = array_slice($item->members, 0, $c);
                         $url = $GLOBALS['TL_CONFIG']['g3_rest_url'].'items?';
@@ -245,12 +213,12 @@ class G3_Rest extends Frontend
                             return $this->processItem($items[0], $conf);
                         } else if ($c > 1) {
                             // set caption to album title or description
-                            switch ($conf['caption']['val']) {
+                            switch ($conf['caption']) {
                             case 'g3Title':
-                                $conf['caption']['val'] = $item->entity->title;
+                                $conf['caption'] = $item->entity->title;
                                 break;
                             case 'g3Desc':
-                                $conf['caption']['val'] = $item->entity->description;
+                                $conf['caption'] = $item->entity->description;
                                 break;
                             default:
                                 break;
@@ -260,21 +228,21 @@ class G3_Rest extends Frontend
                     }
                 }
             } else {
-                if ($conf['type']['val'] == null
-                    || $conf['type']['val'] == $item->entity->type
+                if ($conf['type'] == null
+                    || $conf['type'] == $item->entity->type
                 ) {
                     return $this->processItem($item, $conf);
                 }
             }
         }
         $this->log(
-            'No Items found for '.$conf['tag']['val'].' ('.$url.')',
+            'No Items found for '.$conf['tag'].' ('.$url.')',
             __CLASS__.' '.__METHOD__,
             TL_ERROR
         );
         return '';
     }
-   
+
     /**
      * REST for several items
      *
@@ -285,29 +253,29 @@ class G3_Rest extends Frontend
      * @param array $conf The parameter array
      *
      * @return string Resulting html code.
-     */     
+     */
     protected function getItems($conf)
     {
-        if (!is_array($conf['id']['val'])) {
+        if (!is_array($conf['id'])) {
             return $this->getItem($conf);
-        } else if (count($conf['id']['val']) == 1) {
-            $conf['id']['val'] = $conf['id']['val'][0];
+        } else if (count($conf['id']) == 1) {
+            $conf['id'] = $conf['id'][0];
             return $this->getItem($conf);
-        } else if (count($conf['id']['val']) > 1) {
+        } else if (count($conf['id']) > 1) {
             // allowed params for REST request
             $use = array('start', 'num');
             $url = $GLOBALS['TL_CONFIG']['g3_rest_url'].'items?';
             $url .= 'urls=["'.$GLOBALS['TL_CONFIG']['g3_rest_url'].'item/';
             $i = '","'.$GLOBALS['TL_CONFIG']['g3_rest_url'].'item/';
-            $url .= implode($i, $conf['id']['val']).'"]';
+            $url .= implode($i, $conf['id']).'"]';
             $url .= $this->reqParams($this->filterArray($use, $conf));
 
             $items = $this->request($url, $conf);
             if (!is_object($items) && !is_array($items)) {
                 return '';
             }
-            $check = ($conf['type']['val'] != null) ? $conf['type']['val'] : false;
-            $allowed = ($conf['count']['val']!=null) ? $conf['count']['val'] : 100;
+            $check = ($conf['type'] != null) ? $conf['type'] : false;
+            $allowed = ($conf['count']!=null) ? $conf['count'] : 100;
             $c = 0;
             foreach ($items as $item) {
                 if (!$check || $item->entity->type == $check) {
@@ -327,7 +295,7 @@ class G3_Rest extends Frontend
             }
         }
         $this->log(
-            'No Items found for '.$conf['tag']['val'].' ('.$url.')',
+            'No Items found for '.$conf['tag'].' ('.$url.')',
             __CLASS__.' '.__METHOD__,
             TL_ERROR
         );
@@ -344,12 +312,12 @@ class G3_Rest extends Frontend
      * @param array $conf The parameter array
      *
      * @return string Resulting html code.
-     */     
+     */
     protected function getTagItems($conf)
     {
-        if (is_array($conf['id']['val'])) {
+        if (is_array($conf['id'])) {
             $this->log(
-                'Only one id allowed in '.$conf['tag']['val'],
+                'Only one id allowed in '.$conf['tag'],
                 __CLASS__.' '.__METHOD__,
                 TL_ERROR
             );
@@ -359,7 +327,7 @@ class G3_Rest extends Frontend
         // allowed params for REST request
         $use = array('start', 'num');
 
-        $url = $GLOBALS['TL_CONFIG']['g3_rest_url'].'tag/'.$conf['id']['val'];
+        $url = $GLOBALS['TL_CONFIG']['g3_rest_url'].'tag/'.$conf['id'];
         $url .= $this->reqParams($this->filterArray($use, $conf));
 
         // get REST response as json
@@ -371,7 +339,7 @@ class G3_Rest extends Frontend
         foreach ($tag->relationships->items->members as $item) {
             $items[] = substr(strchr($item, ','), 1);
         }
-        $conf['id']['val'] = $items;
+        $conf['id'] = $items;
         return $this->getItems($conf);
     }
 
@@ -385,11 +353,11 @@ class G3_Rest extends Frontend
      * @param array  $conf The parameter array
      *
      * @return string Resulting html code.
-     */     
+     */
     protected function processCaption($item, $conf)
     {
         // setting image caption title
-        switch ($conf['caption']['val']) {
+        switch ($conf['caption']) {
         case 'none':
             return '';
             break;
@@ -400,7 +368,7 @@ class G3_Rest extends Frontend
             $caption = $item->entity->description;
             break;
         default:
-            $caption = $conf['caption']['val'];
+            $caption = $conf['caption'];
             break;
         }
 
@@ -420,27 +388,27 @@ class G3_Rest extends Frontend
      * @param array  $conf The parameter array
      *
      * @return string Resulting html code.
-     */     
+     */
     protected function processItem($item, $conf)
     {
         $html = '';
         // check wether countainer is needed
         if ($this->checkContainer($conf)) {
-            $html .= $this->getContainerOpenHTML('image', $conf['divclass']['val']);
+            $html .= $this->getContainerOpenHTML('image', $conf['divclass']);
         }
-                
+
         // get photo html code
         $html .= $this->processPhoto($item, $conf);
         $html .= $this->processCaption($item, $conf);
         $members = $item->relationships->tags->members;
         // check wether links to the tags should be shown
-        if ($conf['showtags']['val'] == 1
+        if ($conf['showtags'] == 1
             && count($members) > 0
         ) {
             $html .= $this->processTags($members, $item->entity->id, $conf);
         }
         // check wether a link to the gallery should be shown
-        if ($conf['showlink']['val'] == 1) {
+        if ($conf['showlink'] == 1) {
             $html .= $this->processLink($item, $conf);
         }
         // close container
@@ -461,31 +429,31 @@ class G3_Rest extends Frontend
      * @param array  $conf  The parameter array
      *
      * @return string Resulting html code.
-     */     
+     */
     protected function processItems($items, $conf)
     {
         // correct some parameters
-        if ($conf['caption']['val'] == 'g3Title'
-            || $conf['caption']['val'] == 'g3Desc'
+        if ($conf['caption'] == 'g3Title'
+            || $conf['caption'] == 'g3Desc'
         ) {
-            $conf['caption']['val'] = 'none';
+            $conf['caption'] = 'none';
         }
 
-        if ($conf['alt']['val'] != 'g3Title'
-            && $conf['alt']['val'] != 'g3Des'
+        if ($conf['alt'] != 'g3Title'
+            && $conf['alt'] != 'g3Des'
         ) {
-            $conf['alt']['val'] = 'g3Title';
+            $conf['alt'] = 'g3Title';
         }
 
-        if ($conf['title']['val'] != 'g3Title'
-            && $conf['title']['val'] != 'g3Desc'
+        if ($conf['title'] != 'g3Title'
+            && $conf['title'] != 'g3Desc'
         ) {
-            $conf['title']['val'] = 'g3Desc';
+            $conf['title'] = 'g3Desc';
         }
 
         $ids = array();
         $tags = array();
-        $html = $this->getContainerOpenHTML('image', $conf['divclass']['val']);
+        $html = $this->getContainerOpenHTML('image', $conf['divclass']);
         foreach ($items as $item) {
             $members = $item->relationships->tags->members;
             if (count($members)>0) {
@@ -496,7 +464,7 @@ class G3_Rest extends Frontend
         }
         $html .= $this->processCaption(null, $conf);
         // check wether links to the tags should be shown
-        if ($conf['showtags']['val'] == 1 && count($tags) > 0) {
+        if ($conf['showtags'] == 1 && count($tags) > 0) {
             $html .= $this->processTags($tags, $ids, $conf);
         }
         $html .= $this->getContainerCloseHTML();
@@ -513,14 +481,14 @@ class G3_Rest extends Frontend
      * @param array  $conf The parameter array
      *
      * @return string Resulting html code.
-     */     
+     */
     protected function processLink($item, $conf)
     {
         return $this->getLinkHTML($item->entity->web_url, $item->entity->title);
     }
 
     /**
-     * Processes data for a (linked) image 
+     * Processes data for a (linked) image
      *
      * Processes data for a image (linked to  Gallery)
      * depending on values in the parameter array.
@@ -529,15 +497,15 @@ class G3_Rest extends Frontend
      * @param array  $conf The parameter array
      *
      * @return string Resulting html code.
-     */     
+     */
     protected function processPhoto($item, $conf)
     {
         if ($item->entity->type == 'album') {
             $check_include = 'thumb';
             $check_link = 'site';
         } else {
-            $check_include = $conf['include']['val'];
-            $check_link = $conf['link']['val'];
+            $check_include = $conf['include'];
+            $check_link = $conf['link'];
         }
 
         // setting photo values like file, height and width
@@ -545,15 +513,15 @@ class G3_Rest extends Frontend
         case 'thumb':
             $f = $item->entity->thumb_url_public;
             $r = 1;
-            if ($conf['height']['val']
-                && $item->entity->thumb_height>$conf['width']['val']
+            if ($conf['height']
+                && $item->entity->thumb_height>$conf['width']
             ) {
-                $r = $conf['height']['val']/$item->entity->thumb_height;
+                $r = $conf['height']/$item->entity->thumb_height;
             }
-            if ($conf['width']['val']
-                && $r*$item->entity->thumb_width>$conf['width']['val']
+            if ($conf['width']
+                && $r*$item->entity->thumb_width>$conf['width']
             ) {
-                $r = $conf['width']['val']/$item->entity->thumb_width;
+                $r = $conf['width']/$item->entity->thumb_width;
             }
             $h = $r*$item->entity->thumb_height;
             $w = $r*$item->entity->thumb_width;
@@ -561,15 +529,15 @@ class G3_Rest extends Frontend
         case 'resize':
             $f = $item->entity->resize_url_public;
             $r = 1;
-            if ($conf['height']['val']
-                && $item->entity->resize_height>$conf['width']['val']
+            if ($conf['height']
+                && $item->entity->resize_height>$conf['width']
             ) {
-                $r = $conf['height']['val']/$item->entity->resize_height;
+                $r = $conf['height']/$item->entity->resize_height;
             }
-            if ($conf['width']['val']
-                && $r*$item->entity->resize_width>$conf['width']['val']
+            if ($conf['width']
+                && $r*$item->entity->resize_width>$conf['width']
             ) {
-                $r = $conf['width']['val']/$item->entity->resize_width;
+                $r = $conf['width']/$item->entity->resize_width;
             }
             $h = $r*$item->entity->resize_height;
             $w = $r*$item->entity->resize_width;
@@ -577,15 +545,15 @@ class G3_Rest extends Frontend
         case 'orig':
             $f = $item->entity->file_url_public;
             $r = 1;
-            if ($conf['height']['val']
-                && $item->entity->height>$conf['width']['val']
+            if ($conf['height']
+                && $item->entity->height>$conf['width']
             ) {
-                $r = $conf['height']['val']/$item->entity->height;
+                $r = $conf['height']/$item->entity->height;
             }
-            if ($conf['width']['val']
-                && $r*$item->entity->width>$conf['width']['val']
+            if ($conf['width']
+                && $r*$item->entity->width>$conf['width']
             ) {
-                $r = $conf['width']['val']/$item->entity->width;
+                $r = $conf['width']/$item->entity->width;
             }
             $h = $r*$item->entity->height;
             $w = $r*$item->entity->width;
@@ -596,7 +564,7 @@ class G3_Rest extends Frontend
         $w = round($w);
 
         // setting alt
-        switch ($conf['alt']['val']) {
+        switch ($conf['alt']) {
         case 'g3Title':
             $alt = $item->entity->title;
             break;
@@ -604,7 +572,7 @@ class G3_Rest extends Frontend
             $alt = $item->entity->description;
             break;
         default:
-            $alt = $conf['alt']['val'];
+            $alt = $conf['alt'];
             break;
         }
 
@@ -613,11 +581,11 @@ class G3_Rest extends Frontend
             $alt = $item->entity->title;
         }
 
-        $cl = $conf['class']['val'];
-        $rel = $conf['rel']['val'];
+        $cl = $conf['class'];
+        $rel = $conf['rel'];
 
         // check wether photo should be linked
-        if ($conf['link']['val'] == 'none') {
+        if ($conf['link'] == 'none') {
             return $this->getImageHTML($f, $h, $w, $alt, $cl);
         } else {
             // setting link target
@@ -634,7 +602,7 @@ class G3_Rest extends Frontend
             }
 
             // setting link title
-            switch ($conf['title']['val']) {
+            switch ($conf['title']) {
             case 'none':
                 $title = '';
                 break;
@@ -645,16 +613,16 @@ class G3_Rest extends Frontend
                 $title = $item->entity->description;
                 break;
             default:
-                $title = $conf['title']['val'];
+                $title = $conf['title'];
                 break;
             }
             $html = $this->getImageHTML($f, $h, $w, $alt, $cl, $link, $title, $rel);
-            return $html; 
+            return $html;
         }
     }
 
     /**
-     * Processes data for linked tags 
+     * Processes data for linked tags
      *
      * Processes data for linked Tags depending
      * on values in the parameter array.
@@ -664,7 +632,7 @@ class G3_Rest extends Frontend
      * @param array $conf The parameter array
      *
      * @return string Resulting html code.
-     */     
+     */
     protected function processTags($tags, $ids, $conf)
     {
         $html = '';
@@ -705,11 +673,11 @@ class G3_Rest extends Frontend
      * @param string $class User css class
      *
      * @return string Resulting html code.
-     */     
+     */
     protected function getContainerOpenHTML($type, $class='')
     {
         $html ='<div class="'.$type.'_container';
-        $html .= (strlen($class) ? ' '.$class : '').'">'."\n"; 
+        $html .= (strlen($class) ? ' '.$class : '').'">'."\n";
         return $html;
     }
 
@@ -717,7 +685,7 @@ class G3_Rest extends Frontend
      * Generates HTML for closing a container
      *
      * @return string Resulting html code.
-     */     
+     */
     protected function getContainerCloseHTML()
     {
         return '</div>'."\n";
@@ -730,7 +698,7 @@ class G3_Rest extends Frontend
      * @param string $url Internet Adress of tag
      *
      * @return string Resulting html code.
-     */     
+     */
     protected function getTagHTML($tag, $url)
     {
         $html = '<a href="'.$url.'" title="';
@@ -747,7 +715,7 @@ class G3_Rest extends Frontend
      * @param string $title Title for Link
      *
      * @return string Resulting html code.
-     */     
+     */
     protected function getLinkHTML($link, $title='')
     {
         $html = '<a href="'.$link.'"';
@@ -772,7 +740,7 @@ class G3_Rest extends Frontend
      * @param string $rel Relative Attribute e.g. for triggering lightbox
      *
      * @return string Resulting html code.
-     */     
+     */
     protected function getImageHTML($f, $h, $w, $alt, $cl='', $l='', $t='', $rel='')
     {
         $html = '';
@@ -805,10 +773,10 @@ class G3_Rest extends Frontend
      */
     protected function checkContainer($conf)
     {
-        if ($conf['caption']['val'] != 'none'
-            || $conf['showlink']['val'] == 1
-            || $conf['showtags']['val'] == 1
-            || strlen($conf['divclass']['val']) > 0
+        if ($conf['caption'] != 'none'
+            || $conf['showlink'] == 1
+            || $conf['showtags'] == 1
+            || strlen($conf['divclass']) > 0
         ) {
             return true;
         } else {
@@ -843,8 +811,8 @@ class G3_Rest extends Frontend
     {
         $r = '';
         foreach ($arr as $k => $v) {
-            if (strlen($v['val'])) {
-                $r .= '&'.$k.'='.$v['val'];
+            if (strlen($v)) {
+                $r .= '&'.$k.'='.$v;
             }
         }
         return $r;
@@ -900,25 +868,26 @@ class G3_Rest extends Frontend
      */
     protected function writeCache($html, $conf)
     {
-        $tagSplit = explode('::', $conf['tag']);
+        $tag = str_replace(array('{{', '}}'), '', $conf['tag']);
+        $tagSplit = explode('::', $tag);
         // check if caching is allowed
         if ($tagSplit[0] == 'g3_rest'
-            && $GLOBALS['TL_CONFIG']['g3_rest_cache'] == 1
+            && $GLOBALS['TL_CONFIG']['g3_rest_cache_time'] > 0
         ) {
-            if ($conf['cache_time']['val'] > 0) {
-                $cache_time = $conf['cache_time']['val'];
+            if ($conf['cache_time'] > 0) {
+                $cache_time = $conf['cache_time']*3600;
             } else {
-                $cache_time = $GLOBALS['TL_CONFIG']['g3_rest_cache_time'];
+                $cache_time = $GLOBALS['TL_CONFIG']['g3_rest_cache_time']*3600;
             }
             // generate language specific filename
-            $file = TL_ROOT.'/system/tmp/g3_rest_';
+            $file = TL_ROOT.'/system/tmp/g3_rest/';
             $file .= md5($GLOBALS['TL_LANGUAGE'].$tag).'.txt';
-            $html = '<!--'.(time()+$cache_time).'-->\n'.$html;
+            $html = '<!--'.(time()+$cache_time).'-->'."\n".$html;
 
             // check if file exists
             if (file_put_contents($file, $html) === false) {
                 $this->log(
-                    'Could not write in ~/system/tmp/, caching disabled!',
+                    'Could not write in ~/system/tmp/g3_rest/, caching disabled!',
                     __CLASS__.' '.__METHOD__,
                     TL_ERROR
                 );
@@ -929,7 +898,7 @@ class G3_Rest extends Frontend
     }
 
     /**
-     * Sends REST request to Gallery 
+     * Sends REST request to Gallery
      *
      * @param string $url  The REST url
      * @param array  $conf The parameter array
@@ -947,12 +916,64 @@ class G3_Rest extends Frontend
             return json_decode($req->response);
         } else {
             $this->log(
-                'Error '.$req->code.' for '.$url.' with '.$conf['tag']['val'],
+                'Error '.$req->code.' for '.$url.' with '.$conf['tag'],
                 __CLASS__.' '.__METHOD__,
                 TL_ERROR
             );
             return '';
         }
+    }
+
+    /**
+     * Deletes expired cache files via Contao Cron
+     *
+     * @return void
+     */
+    public function purgeTempFolder()
+    {
+        $path = 'system/tmp/g3_rest';
+
+        // create folder if it does not exist
+        if (!file_exists(TL_ROOT.'/'.$path)) {
+            $this->import('Folder');
+            new Folder($path);
+            $this->log(
+                'Tried to create ~/'.$path,
+                __CLASS__.' '.__METHOD__,
+                TL_CRON
+            );
+        }
+
+        $files = scan(TL_ROOT.'/'.$path, true);
+
+        if (is_array($files)) {
+            foreach ($files as $file) {
+                if (!is_dir(TL_ROOT.'/'.$path.'/'.$file)) {
+                    $filePointer = @fopen(TL_ROOT.'/'.$path.'/'.$file, 'r');
+                    if ($filePointer && !feof($filePointer)) {
+                        $line = fgets($filePointer, 4096);
+                    } else {
+                        $this->log(
+                            'Could not read file ~/'.$path.'/'.$file.'!',
+                            __CLASS__.' '.__METHOD__,
+                            TL_ERROR
+                        );
+
+                    }
+                    fclose($filePointer);
+                    // check if file is expired
+                    $expires = preg_match('~<!--([0-9]*)-->~', $line, $matches);
+                    if (intval($matches[1]) < time()) {
+                        @unlink(TL_ROOT.'/'.$path.'/'.$file);
+                    }
+                }
+            }
+        }
+        $this->log(
+            'Purged temporary g3_rest directory',
+            __CLASS__.' '.__METHOD__,
+            TL_CRON
+        );
     }
 }
 
