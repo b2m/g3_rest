@@ -51,7 +51,7 @@ class G3_Rest extends Frontend
                 ) {
                     // get path to language specific filename
                     $file = TL_ROOT.'/system/tmp/g3_rest/';
-                    $file .= md5($GLOBALS['TL_LANGUAGE'].$tag).'.txt';
+                    $file .= md5($GLOBALS['TL_LANGUAGE'].specialchars($tag)).'.txt';
                     // check if file exists
                     if (file_exists($file)) {
                         $html = file_get_contents($file);
@@ -868,33 +868,36 @@ class G3_Rest extends Frontend
      */
     protected function writeCache($html, $conf)
     {
-        $tag = str_replace(array('{{', '}}'), '', $conf['tag']);
-        $tagSplit = explode('::', $tag);
-        // check if caching is allowed
-        if ($tagSplit[0] == 'g3_rest'
-            && $GLOBALS['TL_CONFIG']['g3_rest_cache_time'] > 0
-        ) {
-            if ($conf['cache_time'] > 0) {
-                $cache_time = $conf['cache_time']*3600;
-            } else {
-                $cache_time = $GLOBALS['TL_CONFIG']['g3_rest_cache_time']*3600;
-            }
-            // generate language specific filename
-            $file = TL_ROOT.'/system/tmp/g3_rest/';
-            $file .= md5($GLOBALS['TL_LANGUAGE'].$tag).'.txt';
-            $html = '<!--'.(time()+$cache_time).'-->'."\n".$html;
+        if (strlen($html) > 0) {
+            $tag = str_replace(array('{{', '}}'), '', $conf['tag']);
+            $tagSplit = explode('::', $tag);
+            // check if caching is allowed
+            if ($tagSplit[0] == 'g3_rest'
+                && $GLOBALS['TL_CONFIG']['g3_rest_cache_time'] > 0
+            ) {
+                if ($conf['cache_time'] > 0) {
+                    $cache_time = $conf['cache_time']*3600;
+                } else {
+                    $cache_time = $GLOBALS['TL_CONFIG']['g3_rest_cache_time']*3600;
+                }
+                // generate language specific filename
+                $file = TL_ROOT.'/system/tmp/g3_rest/';
+                $file .= md5($GLOBALS['TL_LANGUAGE'].$tag).'.txt';
+                $html = '<!--'.(time()+$cache_time).'-->'."\n".$html;
 
-            // check if file exists
-            if (file_put_contents($file, $html) === false) {
-                $this->log(
-                    'Could not write in ~/system/tmp/g3_rest/, caching disabled!',
-                    __CLASS__.' '.__METHOD__,
-                    TL_ERROR
-                );
-                return false;
+                // check if file exists
+                if (file_put_contents($file, $html) === false) {
+                    $this->log(
+                        'Could not write in ~/system/tmp/g3_rest/, cache disabled!',
+                        __CLASS__.' '.__METHOD__,
+                        TL_ERROR
+                    );
+                    return false;
+                }
             }
+            return true;
         }
-        return true;
+        return false;
     }
 
     /**
