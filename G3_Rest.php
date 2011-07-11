@@ -468,6 +468,7 @@ class G3_Rest extends Frontend
             $html .= $this->processTags($tags, $ids, $conf);
         }
         $html .= $this->getContainerCloseHTML();
+        $this->writeCache($html, $conf);
         return $html;
     }
 
