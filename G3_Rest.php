@@ -27,6 +27,35 @@ if (!defined('TL_ROOT')) die('You can not access this file directly!');
 class G3_Rest extends Frontend
 {
     /**
+     * Calculate the new dimensions of the photo
+     *
+     * Calculates the dimensions of the photo
+     * depending on the settings within gallery3
+     * and the InsertTag.
+     *
+     * @param int   $h    original height of image
+     * @param int   $w    original width of image
+     * @param array $conf the parameter array
+     *
+     * @return array Array containing new (height, width)
+     */
+    private function _calDimensions($h, $w, $conf)
+    {
+        $r = 1;
+        if ($conf['height']
+            && $h > $conf['width']
+        ) {
+            $r = $conf['height']/$h;
+        }
+        if ($conf['width']
+            && $r*$w > $conf['width']
+        ) {
+            $r = $conf['width']/$w;
+        }
+        return array(round($r*$h), round($r*$w));
+    }
+
+    /**
      * Check if InsertTag could be processed
      *
      * Check InsertTag and if it could be
@@ -511,58 +540,33 @@ class G3_Rest extends Frontend
 
         // setting photo values like file, height and width
         switch ($check_include) {
-        case 'thumb':
-            $f = $item->entity->thumb_url_public;
-            $r = 1;
-            if ($conf['height']
-                && $item->entity->thumb_height>$conf['width']
-            ) {
-                $r = $conf['height']/$item->entity->thumb_height;
-            }
-            if ($conf['width']
-                && $r*$item->entity->thumb_width>$conf['width']
-            ) {
-                $r = $conf['width']/$item->entity->thumb_width;
-            }
-            $h = $r*$item->entity->thumb_height;
-            $w = $r*$item->entity->thumb_width;
             break;
         case 'resize':
             $f = $item->entity->resize_url_public;
-            $r = 1;
-            if ($conf['height']
-                && $item->entity->resize_height>$conf['width']
-            ) {
-                $r = $conf['height']/$item->entity->resize_height;
-            }
-            if ($conf['width']
-                && $r*$item->entity->resize_width>$conf['width']
-            ) {
-                $r = $conf['width']/$item->entity->resize_width;
-            }
-            $h = $r*$item->entity->resize_height;
-            $w = $r*$item->entity->resize_width;
+            list($h, $w) = $this->_calDimensions(
+                $item->entity->resize_height,
+                $item->entity->resize_width,
+                $conf
+            );
             break;
         case 'orig':
             $f = $item->entity->file_url_public;
-            $r = 1;
-            if ($conf['height']
-                && $item->entity->height>$conf['width']
-            ) {
-                $r = $conf['height']/$item->entity->height;
-            }
-            if ($conf['width']
-                && $r*$item->entity->width>$conf['width']
-            ) {
-                $r = $conf['width']/$item->entity->width;
-            }
-            $h = $r*$item->entity->height;
-            $w = $r*$item->entity->width;
+            list($h, $w) = $this->_calDimensions(
+                $item->entity->orig_height,
+                $item->entity->orig_width,
+                $conf
+            );
+            break;
+        case 'thumb':
+        default:
+            $f = $item->entity->thumb_url_public;
+            list($h, $w) = $this->_calDimensions(
+                $item->entity->thumb_height,
+                $item->entity->thumb_width,
+                $conf
+            );
             break;
         }
-
-        $h = round($h);
-        $w = round($w);
 
         // setting alt
         switch ($conf['alt']) {
@@ -591,14 +595,15 @@ class G3_Rest extends Frontend
         } else {
             // setting link target
             switch ($check_link) {
-            case 'resize':
-                $link = $item->entity->resize_url_public;
-                break;
             case 'orig':
                 $link = $item->entity->file_url_public;
                 break;
             case 'site':
                 $link = $item->entity->web_url;
+                break;
+            case 'resize':
+            default:
+                $link = $item->entity->resize_url_public;
                 break;
             }
 
