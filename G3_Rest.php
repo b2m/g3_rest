@@ -533,6 +533,13 @@ class G3_Rest extends Frontend
         if ($item->entity->type == 'album') {
             $check_include = 'thumb';
             $check_link = 'site';
+        } else if ($item->entity->type == 'movie') {
+            $check_include = 'thumb';
+            if ($conf['link'] == 'resize') {
+                $check_link = 'orig';
+            } else {
+                $check_link = $conf['link'];
+            }
         } else {
             $check_include = $conf['include'];
             $check_link = $conf['link'];
@@ -540,7 +547,7 @@ class G3_Rest extends Frontend
 
         // setting photo values like file, height and width
         switch ($check_include) {
-         case 'resize':
+        case 'resize':
             $f = $item->entity->resize_url_public;
             list($h, $w) = $this->_calDimensions(
                 $item->entity->resize_height,
