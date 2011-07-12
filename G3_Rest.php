@@ -302,25 +302,26 @@ class G3_Rest extends Frontend
             $items = $this->request($url, $conf);
             if (!is_object($items) && !is_array($items)) {
                 return '';
-            }
-            $check = ($conf['type'] != null) ? $conf['type'] : false;
-            $allowed = ($conf['count']!=null) ? $conf['count'] : 100;
-            $c = 0;
-            foreach ($items as $item) {
-                if (!$check || $item->entity->type == $check) {
-                    $c++;
-                    $process[] = $item;
-                    if ($c>=$allowed) {
-                        break;
+            } else {
+                $check = ($conf['type'] != null) ? $conf['type'] : false;
+                $allowed = ($conf['count']!=null) ? $conf['count'] : 100;
+                $c = 0;
+                foreach ($items as $item) {
+                    if (!$check || $item->entity->type == $check) {
+                        $c++;
+                        $process[] = $item;
+                        if ($c>=$allowed) {
+                            break;
+                        }
                     }
                 }
-            }
 
-            $cp = count($process);
-            if ($cp == 1) {
-                return $this->processItem($process[0], $conf);
-            } else if ($cp > 1) {
-                return $this->processItems($process, $conf);
+                $cp = count($process);
+                if ($cp == 1) {
+                    return $this->processItem($process[0], $conf);
+                } else if ($cp > 1) {
+                    return $this->processItems($process, $conf);
+                }
             }
         }
         $this->log(
@@ -564,7 +565,6 @@ class G3_Rest extends Frontend
             );
             break;
         case 'thumb':
-        default:
             $f = $item->entity->thumb_url_public;
             list($h, $w) = $this->_calDimensions(
                 $item->entity->thumb_height,
@@ -597,7 +597,7 @@ class G3_Rest extends Frontend
 
         // check wether photo should be linked
         if ($conf['link'] == 'none') {
-            return $this->getImageHTML($f, $h, $w, $alt, $cl);
+            $html = $this->getImageHTML($f, $h, $w, $alt, $cl);
         } else {
             // setting link target
             switch ($check_link) {
@@ -608,7 +608,6 @@ class G3_Rest extends Frontend
                 $link = $item->entity->web_url;
                 break;
             case 'resize':
-            default:
                 $link = $item->entity->resize_url_public;
                 break;
             }
@@ -629,8 +628,8 @@ class G3_Rest extends Frontend
                 break;
             }
             $html = $this->getImageHTML($f, $h, $w, $alt, $cl, $link, $title, $rel);
-            return $html;
         }
+        return $html;
     }
 
     /**
