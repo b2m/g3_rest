@@ -85,7 +85,7 @@ class G3_Rest extends Frontend
                     if (file_exists($file)) {
                         $html = file_get_contents($file);
                         // check if file is expired
-                        $expires = preg_match('~<!--([0-9]*)-->~', $html, $matches);
+                        preg_match('~<!--([0-9]*)-->~', $html, $matches);
                         if (intval($matches[1]) > time()) {
                             // remove timestamp from output
                             $html = str_replace($matches[0], '', $html);
@@ -540,8 +540,7 @@ class G3_Rest extends Frontend
 
         // setting photo values like file, height and width
         switch ($check_include) {
-            break;
-        case 'resize':
+         case 'resize':
             $f = $item->entity->resize_url_public;
             list($h, $w) = $this->_calDimensions(
                 $item->entity->resize_height,
@@ -971,7 +970,7 @@ class G3_Rest extends Frontend
                     }
                     fclose($filePointer);
                     // check if file is expired
-                    $expires = preg_match('~<!--([0-9]*)-->~', $line, $matches);
+                    preg_match('~<!--([0-9]*)-->~', $line, $matches);
                     if (intval($matches[1]) < time()) {
                         @unlink(TL_ROOT.'/'.$path.'/'.$file);
                     }
